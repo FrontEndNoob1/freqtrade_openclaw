@@ -1,0 +1,46 @@
+name: CI
+
+on:
+push:
+pull_request:
+
+jobs:
+test:
+runs-on: ubuntu-latest
+steps:
+- uses: actions/checkout@v4
+
+  - name: Install system dependencies
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y build-essential python3-dev python3-venv python3-distutils libatlas-base-dev libffi-dev libssl-dev libcurl4-openssl-dev libxml2-dev libxslt1-dev libpq-dev libta-lib0 libta-lib-dev
+
+  - name: Setup Python
+    uses: actions/setup-python@v4
+    with:
+      python-version: '3.11'
+
+  - name: Create venv & install Python deps
+    run: |
+      python -m venv .venv
+      . .venv/bin/activate
+      python -m pip install --upgrade pip setuptools wheel
+      pip install -r requirements.txt
+
+  - name: Run pre-commit (non-fatal)
+    run: |
+      . .venv/bin/activate
+      pip install pre-commit
+      # Run pre-commit over all files; allow it to modify files but do not fail the job
+      pre-commit run --all-files || true
+
+  - name: Run tests (fast subset)
+    run: |
+      . .venv/bin/activate
+      pytest -q tests -k "not integration and not slow" --maxfail=1 --disable-warnings
+
+  - name: Lint (optional)
+    run: |
+      . .venv/bin/activate
+      pip install pylint
+      pylint freqtrade || true
